@@ -1,12 +1,19 @@
 2014, Geoff Nixon. The commented version of this text is licensed Creative Commons BY-SA 4.0, as below.
-The comments to which this license applies begin with the characters: #%. If you strip this script of these comments, the resultant code is:
+The comments to which this license applies begin with the characters: #%.
 
+If you strip this script of these comments, the resultant code is:
 2014, Geoff Nixon. Public domain - attribution requested but not required.
 
-This is to encourage the use and development of a unified version of this script, which shall be available at https://github.com/g-nix/shellfish.
+This is to encourage the use and development of a unified version of this script,
+which shall be available at https://github.com/g-nix/shellfish.
+
 Forks, issues, questions, personal attacks, pull requests gladly accepted.
 
-To produce the public domain code, execute the file (don't cat).
+To produce the public domain code, execute the file (don't cat). Or try:
+
+cat shellfish | sed -e's/#%.*//g' -e's/^ *//' -e's/ *$//' -e'/^$/d' -e's/cat.*//'
+
+---
 
 Creative Commons Attribution-ShareAlike 4.0 International Public License
 

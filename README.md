@@ -1,6 +1,6 @@
 shellfish
 =========
-A curmudgeonly, grudgingly bilingual fish shell and POSIX shell script template.
+Grudgingly bilingual fish shell and POSIX shell scripting.
 
 ![shellfish](https://raw2.github.com/g-nix/shellfish/master/.picture/shellfish.jpg)
 * * *

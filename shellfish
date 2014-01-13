@@ -1,0 +1,289 @@
+#!/usr/bin/env sh#llfish #% shellfish - grudgingly bilingual POSIX sh / fish
+#!/usr/bin/env fish#hell #% shellfish - grudgingly bilingual fish / POSIX sh
+
+##===--------------------------------------------------------------------===##
+
+#% 2014, Geoff Nixon. The commented version of this text is licensed Creative
+#% Commons BY-SA 4.0, as here: http://creativecommons.org/licenses/by-sa/4.0.
+
+#% The comments to which this license applies begin with the characters: #%
+#% If you strip this document of these comments, the resultant code is:
+
+# 2014, Geoff Nixon. Public domain - attribution requested but not required. #
+# The latest version of this script is at http://github.com/g-nix/shellfish. #
+
+#% This is to encourage the use and development of a unified version of this
+#% document, which shall be available at https://github.com/g-nix/shellfish.
+#% Forks, issues, questions, personal attacks, pull requests gladly accepted.
+
+#% --  To produce the public domain code, execute this file (don't cat). -- %#
+#% --- ================================================================ --- %#
+
+##===---------------------------- shellfish -----------------------------===##
+
+#%===--------------------------------------------------------------------===%#
+#%=== INTRODUCTION ------------------------------------------------------===%#
+
+#% This is a script, although it's more commentary than utility; it is meant
+#% to document how to write script valid in both fish syntax and POSIX shell.
+
+#% If the term 'POSIX shell' is unfamiliar to you, this refers to a limited
+#% form of what you might be calling a 'bash' script; it is the language
+#% specified by the POSIX / Single UNIX Specification for the default
+#% command line interpreter. The code here should execute properly in any
+#% POSIX compliant shell, such as BSD sh, dash, ksh, etc., as well
+#% as bash, but no attempt is made at parsing bash/zsh language extensions.
+
+#%
+#% IMPORTANT: This code does not allow for parsing *existing* shell scripts,
+#% or fish scripts, or bash scripts, as is. It might be used as a basis for
+#% some type of 'converter', but no such utility exists at present. Instead,
+#% one needs to write 'shellfish', an ugly sort of munged shell-fish hybrid
+#% (hence the name). If you don't care about how this is implemented, you
+#% can probably stop reading after the USAGE section, which documents this.
+
+#%===--------------------------------------------------------------------===%#
+#%=== BACKGROUND --------------------------------------------------------===%#
+
+#% Shell syntax and fish syntax are related, but typically are intentionally
+#% incompatible. POSIX shell syntax is the direct descendant of some very,
+#% very old 'code'; it's essentially an admixture of the commands one could
+#% enter at the prompt of some of the earliest mainframe computers, i.e.,
+#% 'echo' (originally thought something of a toy 'repeat-after-me' function)
+#% and 'cat' (to concatenate two files before sending the output to a punch
+#% card or line printer) with control language derived mostly from ALGOL 68.
+#% The modern POSIX standard by and large mandates features as in AT&T ksh93.
+
+#% While bash and related shells aim at adding additional *functionality*
+#% (regular expression parsing, etc.) while remaining largely compatible
+#% with POSIX shell, fish is meant to be a more accessible and modern
+#% 'reimagining' of what a command line interpreter could, or should, be.
+#% How successful it is at doing this is not really particularly relevant but
+#% here, but my own opinion is that it is a MUCH better interactive shell,
+#% but scripting is more challenging, often for the very same reason. This
+#% is usually a worthwile tradeoff, but it can be limiting as scripts must
+#% be written in one syntax or the other, and the same code cannot be
+#% sourced directly by the shell in both fish and another shell.
+
+#% Hence, this script.
+
+#%===--------------------------------------------------------------------===%#
+#%=== USAGE AND LIMITATIONS ---------------------------------------------===%#
+
+#% This script (kind of?) "works" by:
+
+#%  - Exploiting diffences in treatment of commands, particularly 'alias'.
+#%  - Supressing shell keywords that fish finds useless (and vise versa).
+#%  - Implementing missing functions in one or the other where possible.
+#%  - When two commands cannot be reconciled, implement with a new command.
+#%  - As a last resort, implement different code for each interpreter.
+#%  - Failing that, avoid a construct entirely.
+
+#%  The resulting code looks more like POSIX shell than fish, but
+#%  The VERB [ SUBJECT | ] OBJECT structure used by fish must be respected.
+
+#%  Other rules:
+
+#%    Conditionals and loops use the "useless" `then` and `do`keywords.
+#%    You must terminate these with the constructs from *both*.
+
+#%    This looks like:
+
+#%     if [ "$foo" = "$bar" ]; then
+#%       echo foobar
+#%     fi; end
+
+#%     while false; do
+#%       true
+#%     done; end
+
+#%    Avoid the elif keyword for multiple case conditionals. Switch/case
+#%    statements differ too greatly in syntax to be able to be used, so
+#%    you'll need to use 'if; then' structure more than one would typically.
+
+#%    Use '; and' and '; or' for truth-functional conditional execution,
+#%    rather than && and ||. Actually, don't. They don't work either.
+
+#%    Use `setenv [-x] VARIABLE VALUE` to set variables, followed by
+#%    the command `export VARIABLE` if you need to export it later,
+#%    but DO NOT set and export in one, or set variables using the = sign.
+
+#%    Function-local variables are not supported.
+#%    There is no way to unexport a variable, while keeping it set.
+#%    You can `unset` it entirely.
+
+#%    For a simple scripts use "$argv" instead of "$@". If you have your
+#%    own functions, you will have to set this manually for each function.
+
+#%    The special commands `dofish` and `nofish` are used for evaluating
+#%    non-portable statements. `dofish` commands will be executed in fish,
+#%    and ignored in shell; the opposite is true for `nofish`.
+
+#%    Statements with command substitutions must be executed individually
+#%    for each, so it's probably best to set a variable with your statement:
+
+#%    setenv checkthisstring 'echo "$argv" | greq -q foo'
+#%    dofish if (eval "$chechthisstring");  ...
+#%    nofish if $("$checkthisstring"); then ...
+
+#%    You must remember to single quote arguments to `nofish` if they
+#%    contain strings that will cause fish error. These include at least:
+
+#%      ; }
+
+#%      && and || must be avoided entirely.
+
+#%    Functions are particularly heinous, but possible. Note that the
+#%    `function` keyword is not defined by POSIX, and when implemented
+#%    in POSIX-y shells, these implementations differ. A function is
+#%    declared in the POSIX shell version simply with foo(){ ... ; }.
+#%    But for consistency, `function` has been aliased to null here.
+
+#%      dofish function party
+#%      nofish function 'party(){'
+#%        nofish eval "argv=$@"
+
+#%        dofish for i in (echo "$argv")
+#%        nofish eval 'for i in '$(echo $argv); do'
+#%          echo $i ' party!'
+#%        done; end
+#%      nofish eval '}'; end
+#%      party fish shell shellfish
+
+#%   --> fish party!
+#%   --> shell party!
+#%   --> shellfish party!
+
+#%   I don't think the example above works at all actually.
+
+#%===--------------------------------------------------------------------===%#
+#%=== PRODUCING SCRIPTS -------------------------------------------------===%#
+
+#% Ideally, I'd like to get this whole thing to be able to work with sh -e,
+#% but presently I don't think its possible. Notes on why follow.
+
+#%
+#% Bad syntax in fish, correct in sh. Allows us to selectively ignore things.
+#% This works in bash as *sh*. When called as 'bash', 'command not found' ...
+#% All other POSIX shells seem ok with it.
+alias   nofish=   2>/dev/null
+alias   dofish=:  2>/dev/null
+alias      end=:  2>/dev/null
+
+#% These seem to work ok, and it's neat that fish prints to stderr here
+#% but doesn't *return* an error. Unfortunately, the reverse is not true.
+
+alias function=:  2>/dev/null
+#% Bash will this last one to be set, then ignores it. Other shells are ok.
+
+#% Bad syntax in sh; "correct" in fish. ...maybe.
+
+eval 'function dofish
+   echo "begin;$argv"\n";end eval2_inner<&3 3<&-"|source 3<&0;end' 2>/dev/null
+#% Third try: pulled straight from eval.fish. VERY WEIRD.
+#% alias dofish eval                                        # Nope.
+#% eval 'function dofish; eval "$argv"; end' 2>/dev/null; : # Nope.
+#% This line causes mksh and yash to fail the *whole script* silently.
+#% Bash, dash, and ksh are ok with it.
+
+dofish 'function :; return 0; end'          2>/dev/null; :
+
+#% This first one really should be a builtin. 'true' isn't a builtin either;
+#% and since it is a utility, if the program is missing or broken, 'true' will
+#% return false. This is why you need a builtin null function.
+
+dofish 'function nofish; return 0; end'     2>/dev/null; :
+
+#% alias alias=: 2>/dev/null
+#%   ... set fish aliases ...
+#%  nofish \alias alias=\alias
+
+#% Above was originally going to be the way I thought I would setup dofish
+#% and nofish in fish, but there doesn't seem to be a way to get a function
+#% in fish to properly ignore (but expand) its arguments.
+
+#% What's more, because fish just freaks the fuck out if it sees && and ||,
+#% there's no way currently to modify the return value of an arbitrary
+#% statement as fish refuses to not parse these. One can't even seemingly
+#% write an 'or', 'and' and 'not' functions in sh, because fish just flat out
+#% rejects $? too. Therefore,
+
+#%   nofish and(){ if test $?  = 0; then "$@"; fi ;}
+#%   nofish or() { if test $? != 0; then "$@"; else return 0; fi ;}
+
+#% Doesn't work because fish sees $?, and
+
+#%   nofish 'and(){ if test $?  = 0; then "$@"; fi ;}'
+#%   nofish 'or() { if test $? != 0; then "$@"; else return 0; fi ;}'
+
+#% Doesn't work because parameters aren't expanded, and
+
+#%   nofish "and(){ if test $?  = 0; then "$@"; fi ;}"
+#%   nofish "or() { if test $? != 0; then "$@"; else return 0; fi ;}"
+
+#% fails because its expanded by both fish and sh and, and fish again sees $?.
+
+#% So unfortunately, between bash not allowing us to override 'function'
+#% and fish descending into code in a function after return has been called,
+#% it seems we just have to let the statement error and silence stdout.
+#% This is what prevents `sh -e` from being used, and we just have to:
+
+#% nofish eval 'not(){ "$@"; false ;}'  #% Wrong, because F & F != T here.
+
+nofish alias not=:
+nofish alias and=:
+nofish alias  or=:
+
+#% But I think this is ok?
+
+#% We want to ignore these, but they need to evaluate the statements that
+#% follow, since they may be on the same line.
+ dofish alias then eval
+ dofish alias do eval
+#% dofish 'alias elif "else if"' # nope.
+
+#% These are just ignored.
+ dofish alias esac :
+ dofish alias done :
+ dofish alias fi   :
+
+#% Actually, one would think given the fish orthography that one could
+#% instead alias these to 'end'; but as it turns out, fish kind of cheats
+#% here and treats 'end' as a delimiter rather than a function. This
+#% is why we need both terminating commands. Weird.
+
+#% These work, I think.
+ dofish 'alias unset  "set -ge"'
+ dofish 'alias export "set -gx"'  # ...not to set variables, only to export.
+
+nofish eval 'argv=$@'
+nofish eval 'setenv(){ if [ $1 = -x ];then x=export;shift;fi;eval $x $1=$2 ;}'
+#
+##===-- Uncomment the code below and comment out the last line in this --===##
+##===-- script to test. Try the other shebang. Or, delete if you like. --===##
+#
+# if test -n "$argv"; then
+#                      printf "\n\tOh yeah? What about $argv?\n\n"; fi; end
+#
+# nofish setenv -x shell shell
+#
+# dofish setenv fish fish
+#
+# if [ -n "$shell" ]; then
+#   printf '\tHello, I am selfish '$shell'fish a curmudgeonly shell.\n\t'
+#   echo I is not a fish.
+#
+#   else if [ -n "$fish" ]; then
+#
+#   echo -e \\tHello, I am $fish shell, a fabulous fish.
+#
+#   else if [ -n "$shell" -a -n "$fish" ]; then
+#       echo 'What kind of a monster am I.'
+#
+#   else
+#        true
+#
+# fi; fi; fi; end
+#
+##===--------------------- Append your script below. --------------------===##
+cat shell*|sed -e's/#%.*//g' -e's/^ *//' -e's/ *$//' -e'/^$/d' -e's/cat.*//'
